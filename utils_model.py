@@ -19,7 +19,30 @@ BANDAS_RIESGO = [
 ]
 
 def cargar_modelo(path: str = "modelo_logit_credito.joblib"):
-    return joblib.load(path)
+    """
+    Carga el modelo .joblib.
+    Aplica un parche de compatibilidad si aparece el error:
+    "Can't get attribute '_RemainderColsList' on sklearn.compose._column_transformer"
+    que puede surgir al migrar entre versiones de scikit-learn.
+    """
+    try:
+        return joblib.load(path)
+    except AttributeError as e:
+        msg = str(e)
+        if "_RemainderColsList" in msg:
+            # Parche de compatibilidad: inyectar símbolo esperado por pickles antiguos
+            try:
+                import sklearn.compose._column_transformer as ct  # type: ignore
+                if not hasattr(ct, "_RemainderColsList"):
+                    # Basta con mapearlo a list para que el unpickler resuelva el símbolo
+                    setattr(ct, "_RemainderColsList", list)
+            except Exception:
+                # Si no pudimos importar/inyectar, relanzamos el error original
+                raise
+            # Reintentar la carga tras el parche
+            return joblib.load(path)
+        # Otros AttributeError: relanzar
+        raise
 
 def banda_riesgo(p: float) -> str:
     for nombre, lo, hi in BANDAS_RIESGO:
@@ -63,7 +86,7 @@ def diagnostico_smtp_avanzado(timeout=10):
     pasos = []
 
     if not all([cfg["host"], cfg["port"], cfg["user"], cfg["pwd"], cfg["from"]]):
-        return {"ok": False, "pasos": [{"paso":"variables",".ok":False,"detalle":"Faltan variables en .env"}]}
+        return {"ok": False, "pasos": [{"paso":"variables","ok":False,"detalle":"Faltan variables en .env"}]}
 
     # Paso 1: DNS
     try:
@@ -74,7 +97,7 @@ def diagnostico_smtp_avanzado(timeout=10):
 
     # Paso 2: Conexión de socket
     try:
-        with socket.create_connection((cfg["host"], cfg["port"]), timeout=timeout) as s:
+        with socket.create_connection((cfg["host"], cfg["port"]), timeout=timeout) as _s:
             pasos.append({"paso":"Socket", "ok": True, "detalle": f"Conectó a {cfg['host']}:{cfg['port']}"})
     except Exception as e:
         return {"ok": False, "pasos": pasos + [{"paso":"Socket","ok":False,"detalle":str(e)}]}
@@ -106,26 +129,34 @@ def diagnostico_smtp_avanzado(timeout=10):
     return {"ok": True, "pasos": pasos}
 
 def enviar_email_simple(destinatario: str, asunto: str, cuerpo_texto: str, timeout: int = 15):
-    """Envía correo; usa SSL si port==465, si no STARTTLS. Retorna (ok, msg)."""
+    """
+    Envía correo; usa SSL si port==465, si no STARTTLS. Retorna (ok, msg).
+    - Valida variables de entorno SMTP.
+    - En Gmail, exige FROM == USER (salvo alias verificado).
+    - Arma HTML seguro sin usar comillas triples.
+    """
     cfg = _smtp_cfg()
     if not all([cfg["host"], cfg["port"], cfg["user"], cfg["pwd"], cfg["from"]]):
         return False, "Faltan variables de entorno SMTP."
 
     # Gmail: exigir FROM==USER para evitar rechazo silencioso
-    if cfg["user"].lower() != cfg["from"].lower():
+    if cfg["user"] and cfg["from"] and cfg["user"].lower() != cfg["from"].lower():
         return False, "Para Gmail, SMTP_FROM debe ser igual a SMTP_USER (salvo alias verificado)."
 
-    cuerpo_html = cuerpo_texto.replace("\n", "<br>")
-    html = f"<p>{cuerpo_html}</p></body></html>"
-
-    <p>{cuerpo_texto.replace('\n','<br>')}</p></body></html>"""
+    # HTML seguro (sin f-string con backslashes ni triple quotes)
+    cuerpo_html = (cuerpo_texto or "").replace("\n", "<br>")
+    html = (
+        "<html><body>"
+        f"<p>{cuerpo_html}</p>"
+        "</body></html>"
+    )
 
     try:
         msg = EmailMessage()
         msg["Subject"] = asunto
         msg["From"] = cfg["from"]
         msg["To"] = destinatario
-        msg.set_content(cuerpo_texto)
+        msg.set_content(cuerpo_texto or "")
         msg.add_alternative(html, subtype="html")
 
         if cfg["port"] == 465:
@@ -147,4 +178,3 @@ def enviar_email_simple(destinatario: str, asunto: str, cuerpo_texto: str, timeo
         return False, f"Error SMTP: {e}"
     except Exception as e:
         return False, f"Error general: {e}"
-
