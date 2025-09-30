@@ -19,9 +19,9 @@ modelo = _modelo()
 
 # Entradas
 c1, c2, c3 = st.columns(3)
-salario = c1.number_input("Salario mensual (S/)", min_value=1000.0, max_value=8000.0, value=4000.0, step=100.0)
-monto   = c2.number_input("Monto del préstamo (S/)", min_value=2000.0, max_value=10000.0, value=3000.0, step=100.0)
-plazo   = c3.number_input("Plazo (meses)", min_value=6, max_value=36, value=12, step=1)
+salario = c1.number_input("Salario mensual (S/)", min_value=1000.0, max_value=12000.0, value=4000.0, step=100.0)
+monto   = c2.number_input("Monto del préstamo (S/)", min_value=500.0, max_value=10000.0, value=2000.0, step=100.0)
+plazo   = c3.number_input("Plazo (meses)", min_value=6, max_value=120, value=12, step=1)
 
 # Estado simple para recordar el último cálculo
 if "ultimo" not in st.session_state:
@@ -83,3 +83,4 @@ if st.session_state.ultimo:
             else:
                 st.error(f"❌ No se pudo enviar el correo (ID {envio_id}). Detalle: {msg}")
                 st.toast("Fallo al enviar correo ❌", icon="❌")
+
