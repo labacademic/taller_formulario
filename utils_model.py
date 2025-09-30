@@ -115,7 +115,9 @@ def enviar_email_simple(destinatario: str, asunto: str, cuerpo_texto: str, timeo
     if cfg["user"].lower() != cfg["from"].lower():
         return False, "Para Gmail, SMTP_FROM debe ser igual a SMTP_USER (salvo alias verificado)."
 
-    html = f"""<html><body style="font-family:Arial;line-height:1.6;">
+    cuerpo_html = cuerpo_texto.replace("\n", "<br>")
+    html = f"<p>{cuerpo_html}</p></body></html>"
+
     <p>{cuerpo_texto.replace('\n','<br>')}</p></body></html>"""
 
     try:
@@ -145,3 +147,4 @@ def enviar_email_simple(destinatario: str, asunto: str, cuerpo_texto: str, timeo
         return False, f"Error SMTP: {e}"
     except Exception as e:
         return False, f"Error general: {e}"
+
