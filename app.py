@@ -9,6 +9,8 @@ st.set_page_config(page_title="Riesgo de Crédito", page_icon="💳")
 from utils_model import cargar_modelo, banda_riesgo, enviar_email_simple
 
 st.title("💳 Formulario de Crédito — Evaluación de Riesgo")
+st.markdown("[🌐 Visita nuestra página web](https://www.labdatosperu.org/capacitaciones/machine-learning-con-python)")
+st.markdown("[🎥 Enlace a la grabación del taller](https://us06web.zoom.us/clips/share/CnncGQ2ZQwGupnyiQ2_44g)")
 
 # Modelo cacheado
 @st.cache_resource
@@ -83,4 +85,5 @@ if st.session_state.ultimo:
             else:
                 st.error(f"❌ No se pudo enviar el correo (ID {envio_id}). Detalle: {msg}")
                 st.toast("Fallo al enviar correo ❌", icon="❌")
+
 
